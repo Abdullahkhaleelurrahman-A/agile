@@ -12,7 +12,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/praveen28092007-wq/Kubernets.git'
+                    url: 'https://github.com/Abdullahkhaleelurrahman-A/agile.git'
             }
         }
 
