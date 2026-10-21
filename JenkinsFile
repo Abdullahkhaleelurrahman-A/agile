@@ -1,0 +1,80 @@
+
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_USERNAME = "praveen28092007"
+        IMAGE_NAME = "vit-course-registration"
+        IMAGE_TAG = "latest"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/praveen28092007-wq/Kubernets.git'
+            }
+        }
+
+        stage('Verify Docker') {
+            steps {
+                bat 'docker --version'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                bat 'docker build -t %DOCKER_USERNAME%/%IMAGE_NAME%:%IMAGE_TAG% .'
+            }
+        }
+
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-cred',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+                    bat '''
+                    powershell -NoProfile -NonInteractive -Command "$env:DOCKER_PASS | docker login --username $env:DOCKER_USER --password-stdin"
+                    '''
+                }
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                bat 'docker push %DOCKER_USERNAME%/%IMAGE_NAME%:%IMAGE_TAG%'
+            }
+        }
+
+        stage('Deploy to Docker') {
+            steps {
+                bat '''
+                    docker rm -f vit-course-registration 2>nul
+                    docker run -d --name vit-course-registration -p 8081:80 %DOCKER_USERNAME%/%IMAGE_NAME%:%IMAGE_TAG%
+                    if errorlevel 1 exit /b 1
+                '''
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                bat 'kubectl apply -f deployment.yaml'
+                bat 'kubectl apply -f service.yaml'
+                bat 'kubectl rollout status deployment/vit-course-registration --timeout=120s'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'CI/CD pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed. Check the stage above for the error.'
+        }
+    }
+}
